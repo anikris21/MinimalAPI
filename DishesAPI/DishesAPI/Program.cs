@@ -34,6 +34,18 @@ app.MapGet("/weatherforecast", () =>
     return forecast.ToString() + System.Diagnostics.Process.GetCurrentProcess().Id;
 });
 
+
+app.MapGet("/dishes", async (DishesDbContext dishesDbContext) =>
+{
+    return await dishesDbContext.Dishes.ToListAsync();
+
+});
+
+var servicescope = app.Services.GetService<IServiceScopeFactory>().CreateScope();
+var context = servicescope.ServiceProvider.GetRequiredService<DishesDbContext>();
+context.Database.EnsureDeleted();
+context.Database.Migrate();
+
 app.Run();
 
 internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
