@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using AutoMapper;
 using DishesAPI.Models;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http.HttpResults;
+using System.Collections.Generic;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,16 +39,30 @@ app.MapGet("/weatherforecast", () =>
 
     Console.WriteLine($"Running at pid {System.Diagnostics.Process.GetCurrentProcess().Id}");
 
-    return forecast.ToString() + System.Diagnostics.Process.GetCurrentProcess().Id;
+    //return forecast.ToString() + System.Diagnostics.Process.GetCurrentProcess().Id;
+
+    return Results.Ok(forecast);
 });
 
-// IMapper mapper, mapper.Map<IEnumerable<DishDto>>(await dishesDbContext.Dishes.ToListAsync());
-// ,string name 
-app.MapGet("/dishes", async (DishesDbContext dishesDbContext, IMapper mapper, string? name) =>
+// IMapper mapper, mapper.Map Task<Ok<IEnumerable<DishDto>>>(await dishesDbContext.Dishes.ToListAsync());
+// ,ClaimsPrincipal claimsprincipal  Task<Results<NotFound, Ok<IEnumerable<DishDto>>>> 
+app.MapGet("/dishes", async Task<Results<NotFound, Ok<IEnumerable<DishDto>>>> (DishesDbContext dishesDbContext, ClaimsPrincipal claimsprincipal, IMapper mapper, string? name, string? orderby) =>
 {
-    return mapper.Map<IEnumerable<DishDto>>(await dishesDbContext.Dishes
+System.Diagnostics.Debug.WriteLine($"user authenticated? {claimsprincipal.Identity?.IsAuthenticated} {orderby}");
+
+var res = await dishesDbContext.Dishes
+    .Where(d => name == null || d.Name == name)
+    .ToListAsync();
+
+    if(res.Count ==0)
+    {
+        return TypedResults.NotFound();
+
+    }
+
+    return TypedResults.Ok( mapper.Map<IEnumerable<DishDto>>(await dishesDbContext.Dishes
         .Where(d => name == null || d.Name == name)
-        .ToListAsync());
+        .ToListAsync()));
 
     // return await dishesDbContext.Dishes.ToListAsync();
 
@@ -53,9 +70,15 @@ app.MapGet("/dishes", async (DishesDbContext dishesDbContext, IMapper mapper, st
 
 
 // IMapper mapper, mapper.Map<DishDto>(await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == dishId));
-app.MapGet("/dishes/{dishId:guid}", async (DishesDbContext dishesDbContext, IMapper mapper, Guid dishId) =>
+// Task<Results<NotFound, Ok<DishDto>>>
+app.MapGet("/dishes/{dishId:guid}", async Task<Results<NotFound, Ok<DishDto>>> (DishesDbContext dishesDbContext, IMapper mapper, Guid dishId) =>
 {
-    return mapper.Map<DishDto>(await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == dishId));
+    var res = await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == dishId);
+    if(res== null)
+    {
+        return TypedResults.NotFound();
+    }
+    return TypedResults.Ok( mapper.Map<DishDto>(res));
 
 });
 
@@ -68,12 +91,18 @@ app.MapGet("/dishes/{dishName}", async (DishesDbContext dishesDbContext, string 
 
 //mapper.Map<IEnumerable<IngredientDto>>((await dishesDbContext.Dishes.Include(d => d.Ingredients)
 //  .FirstOrDefaultAsync(d => d.Id == dishId))?.Ingredients)
-app.MapGet("/dishes/{dishId}/ingredients", async (DishesDbContext dishesDbContext, IMapper mapper, Guid dishId) =>
+// Task<Results<NotFound, Ok<iEnumerable<IngredientDto>>>>
+app.MapGet("/dishes/{dishId}/ingredients", async Task<Results<NotFound, Ok<IEnumerable<IngredientDto>>>> (DishesDbContext dishesDbContext, IMapper mapper, Guid dishId) =>
 {
+    var dishEntity = dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id ==dishId);
+    if(dishEntity== null)
+    {
+        return TypedResults.NotFound();
+    }
     // .Include(d => d.Ingredients)
-    return mapper.Map<IEnumerable<IngredientDto>>((await dishesDbContext.Dishes
+    return TypedResults.Ok( mapper.Map<IEnumerable<IngredientDto>>((await dishesDbContext.Dishes
     .Include(d => d.Ingredients)
-    .FirstOrDefaultAsync(d => d.Id == dishId))?.Ingredients);
+    .FirstOrDefaultAsync(d => d.Id == dishId))?.Ingredients));
 
 });
 
