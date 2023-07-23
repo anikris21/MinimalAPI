@@ -1,11 +1,16 @@
 using DishesAPI.DbContexts;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using AutoMapper;
+using DishesAPI.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddDbContext<DishesDbContext>(o => o.UseSqlite(
  builder.Configuration["ConnectionStrings:DishesDbConnectionString"]));
+
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 var app = builder.Build();
 
@@ -34,10 +39,38 @@ app.MapGet("/weatherforecast", () =>
     return forecast.ToString() + System.Diagnostics.Process.GetCurrentProcess().Id;
 });
 
-
-app.MapGet("/dishes", async (DishesDbContext dishesDbContext) =>
+// IMapper mapper, mapper.Map<IEnumerable<DishDto>>(await dishesDbContext.Dishes.ToListAsync());
+app.MapGet("/dishes", async (DishesDbContext dishesDbContext, IMapper mapper) =>
 {
-    return await dishesDbContext.Dishes.ToListAsync();
+    return mapper.Map<IEnumerable<DishDto>>(await dishesDbContext.Dishes.ToListAsync());
+
+    // return await dishesDbContext.Dishes.ToListAsync();
+
+});
+
+
+// IMapper mapper, mapper.Map<DishDto>(await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == dishId));
+app.MapGet("/dishes/{dishId:guid}", async (DishesDbContext dishesDbContext, IMapper mapper, Guid dishId) =>
+{
+    return mapper.Map<DishDto>(await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == dishId));
+
+});
+
+// string dishName  d=> d.Name == dishName
+app.MapGet("/dishes/{dishName}", async (DishesDbContext dishesDbContext, string dishName) =>
+{
+    return await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Name == dishName);
+
+});
+
+//mapper.Map<IEnumerable<IngredientDto>>((await dishesDbContext.Dishes.Include(d => d.Ingredients)
+//  .FirstOrDefaultAsync(d => d.Id == dishId))?.Ingredients)
+app.MapGet("/dishes/{dishId}/ingredients", async (DishesDbContext dishesDbContext, IMapper mapper, Guid dishId) =>
+{
+    // .Include(d => d.Ingredients)
+    return mapper.Map<IEnumerable<IngredientDto>>((await dishesDbContext.Dishes
+    .Include(d => d.Ingredients)
+    .FirstOrDefaultAsync(d => d.Id == dishId))?.Ingredients);
 
 });
 
