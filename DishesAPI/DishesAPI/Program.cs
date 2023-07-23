@@ -40,9 +40,12 @@ app.MapGet("/weatherforecast", () =>
 });
 
 // IMapper mapper, mapper.Map<IEnumerable<DishDto>>(await dishesDbContext.Dishes.ToListAsync());
-app.MapGet("/dishes", async (DishesDbContext dishesDbContext, IMapper mapper) =>
+// ,string name 
+app.MapGet("/dishes", async (DishesDbContext dishesDbContext, IMapper mapper, string? name) =>
 {
-    return mapper.Map<IEnumerable<DishDto>>(await dishesDbContext.Dishes.ToListAsync());
+    return mapper.Map<IEnumerable<DishDto>>(await dishesDbContext.Dishes
+        .Where(d => name == null || d.Name == name)
+        .ToListAsync());
 
     // return await dishesDbContext.Dishes.ToListAsync();
 
