@@ -6,6 +6,7 @@ using DishesAPI.Models;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using System.Collections.Generic;
+using DishesAPI.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,7 +71,7 @@ var res = await dishesDbContext.Dishes
 
 
 // IMapper mapper, mapper.Map<DishDto>(await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == dishId));
-// Task<Results<NotFound, Ok<DishDto>>>
+// Task<Results<NotFound, Ok<DishDto>>> 
 app.MapGet("/dishes/{dishId:guid}", async Task<Results<NotFound, Ok<DishDto>>> (DishesDbContext dishesDbContext, IMapper mapper, Guid dishId) =>
 {
     var res = await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == dishId);
@@ -80,7 +81,7 @@ app.MapGet("/dishes/{dishId:guid}", async Task<Results<NotFound, Ok<DishDto>>> (
     }
     return TypedResults.Ok( mapper.Map<DishDto>(res));
 
-});
+}).WithName("GetDish");
 
 // string dishName  d=> d.Name == dishName
 app.MapGet("/dishes/{dishName}", async (DishesDbContext dishesDbContext, string dishName) =>
@@ -104,6 +105,28 @@ app.MapGet("/dishes/{dishId}/ingredients", async Task<Results<NotFound, Ok<IEnum
     .Include(d => d.Ingredients)
     .FirstOrDefaultAsync(d => d.Id == dishId))?.Ingredients));
 
+});
+
+// DishForCreationDto ,LinkGenerator link , HttpContext httpContext Task<Created<DishDto>>
+app.MapPost("/dishes", async Task<CreatedAtRoute<DishDto>> (DishesDbContext dishesDbContext, 
+    IMapper mapper, DishForCreationDto dishesForCreationDto, 
+    LinkGenerator link, 
+    HttpContext httpContext
+    ) =>
+{
+    var entity = mapper.Map<Dish>(dishesForCreationDto);
+    dishesDbContext.Add(entity);
+    await dishesDbContext.SaveChangesAsync();
+
+    var ret = mapper.Map<DishDto>(entity);
+
+     var uri= link.GetUriByName(httpContext, "GetDish", new { dishId = ret.Id });
+
+    //return TypedResults.Created($"https://localhost:7161/dishes/{ret.Id}", ret);
+
+    return TypedResults.CreatedAtRoute(ret, "GetDish", new { dishId = ret.Id });
+
+    //return TypedResults.Created(uri, ret);
 });
 
 var servicescope = app.Services.GetService<IServiceScopeFactory>().CreateScope();
